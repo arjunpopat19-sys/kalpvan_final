@@ -2,8 +2,16 @@ import { useState, useEffect } from "react";
 import { API_BASE_URL } from "@/lib/api";
 import staticDoctorImg from "@/assets/doctor.jpg";
 
+const CACHE_KEY = "kalpvan_doctor_img";
+
 export const useDoctorImage = () => {
-  const [doctorImg, setDoctorImg] = useState<string>(staticDoctorImg);
+  const [doctorImg, setDoctorImg] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) return cached;
+    }
+    return staticDoctorImg;
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -13,7 +21,11 @@ export const useDoctorImage = () => {
         if (res.ok) {
           const data = await res.json();
           if (data && data.value) {
-            setDoctorImg(`${API_BASE_URL}${data.value}`);
+            const fullUrl = `${API_BASE_URL}${data.value}`;
+            setDoctorImg(fullUrl);
+            if (typeof window !== "undefined") {
+              localStorage.setItem(CACHE_KEY, fullUrl);
+            }
           }
         }
       } catch (error) {
