@@ -1,0 +1,15 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /admin/
+Disallow: /login
+Disallow: /register
+
+# Search Engine Crawlers
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+Sitemap: https://kalpvanayurvedashram.com/sitemap.xml
