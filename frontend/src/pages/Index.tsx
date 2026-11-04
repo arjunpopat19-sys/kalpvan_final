@@ -359,20 +359,25 @@ const QuickAppointmentSection = () => {
   );
 };
 
-const Index = () => (
-  <>
-    <SEO
-      title="Natural Healing for Mind, Body & Soul | Best Ayurvedic Clinic"
-      description="Experience authentic Ayurvedic healing at Kalpvan Ayurvedashram in Bharuch, Gujarat. Specialized Panchakarma, Cosmetology, Trichology & Weight Loss by Dr. Vandana Thakkar."
-      canonical="/"
-    />
-    <HeroSection />
-    <TreatmentsSection />
-    <AboutDoctorSection />
-    <WhyChooseSection />
-    <TestimonialsSection />
-    <QuickAppointmentSection />
-  </>
-);
+const Index = () => {
+  const { language } = useLanguage();
+  return (
+    <>
+      <SEO
+        title={language === 'hi' 
+          ? 'कल्पवन आयुर्वेदाश्रम | भरूच, गुजरात में सर्वश्रेष्ठ आयुर्वेदिक एवं पंचकर्म चिकित्सालय' 
+          : 'Kalpvan Ayurvedashram | Best Ayurvedic & Panchakarma Clinic in Bharuch, Gujarat'}
+        description="Experience authentic Ayurvedic healing at Kalpvan Ayurvedashram in Bharuch, Gujarat. Specialized Panchakarma, Cosmetology, Trichology & Weight Loss by Dr. Vandana Thakkar."
+        canonical="/"
+      />
+      <HeroSection />
+      <TreatmentsSection />
+      <AboutDoctorSection />
+      <WhyChooseSection />
+      <TestimonialsSection />
+      <QuickAppointmentSection />
+    </>
+  );
+};
 
 export default Index;

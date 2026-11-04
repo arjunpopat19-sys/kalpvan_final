@@ -29,8 +29,10 @@ export const SEO: React.FC<SEOProps> = ({
   const { language } = useLanguage();
 
   const fullTitle = title 
-    ? `${title} | Kalpvan Ayurvedashram` 
-    : 'Kalpvan Ayurvedashram | Best Ayurvedic & Panchakarma Clinic in Bharuch, Gujarat';
+    ? (title.includes('Kalpvan') || title.includes('कल्पवन') ? title : `${title} | Kalpvan Ayurvedashram`) 
+    : (language === 'hi'
+        ? 'कल्पवन आयुर्वेदाश्रम | भरूच, गुजरात में सर्वश्रेष्ठ आयुर्वेदिक एवं पंचकर्म चिकित्सालय'
+        : 'Kalpvan Ayurvedashram | Best Ayurvedic & Panchakarma Clinic in Bharuch, Gujarat');
 
   const defaultDesc = language === 'hi'
     ? 'कल्पवन आयुर्वेदाश्रम भरूच, गुजरात में डॉ. वंदना ठक्कर के मार्गदर्शन में प्रामाणिक आयुर्वेदिक उपचार, पंचकर्म डिटॉक्स, त्वचा और बाल चिकित्सा और समग्र स्वास्थ्य प्रदान करता है।'
