@@ -14,6 +14,7 @@ const {
     reorderTreatments
 } = require('../controllers/treatmentController');
 const { protect, requireAdmin } = require('../middleware/authMiddleware');
+const Media = require('../models/Media');
 
 // Configure multer for treatment image upload
 const uploadDir = path.join(__dirname, '..', 'uploads');
@@ -46,10 +47,29 @@ const upload = multer({
 });
 
 // POST upload treatment image
-router.post('/upload-image', protect, requireAdmin, upload.single('image'), (req, res) => {
+router.post('/upload-image', protect, requireAdmin, upload.single('image'), async (req, res) => {
     if (!req.file) {
         return res.status(400).json({ message: 'No file uploaded' });
     }
+
+    try {
+        const fileBuffer = fs.readFileSync(req.file.path);
+        await Media.findOneAndUpdate(
+            { filename: req.file.filename },
+            {
+                filename: req.file.filename,
+                data: fileBuffer,
+                contentType: req.file.mimetype || 'image/jpeg',
+                size: req.file.size,
+                uploadedAt: new Date()
+            },
+            { upsert: true, returnDocument: 'after' }
+        );
+        console.log(`✅ Treatment image saved to MongoDB Atlas: ${req.file.filename}`);
+    } catch (err) {
+        console.error('⚠️ Error saving treatment image to MongoDB Atlas:', err.message);
+    }
+
     const imageUrl = `/uploads/${req.file.filename}`;
     res.json({ message: 'Image uploaded successfully', imageUrl });
 });

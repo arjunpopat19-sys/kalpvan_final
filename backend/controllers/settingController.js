@@ -1,4 +1,5 @@
 const Setting = require('../models/Setting');
+const Media = require('../models/Media');
 const path = require('path');
 const fs = require('fs');
 
@@ -24,6 +25,25 @@ const uploadDoctorImage = async (req, res) => {
             return res.status(400).json({ message: 'No file uploaded' });
         }
         const filePath = `/uploads/${req.file.filename}`;
+
+        // Save uploaded doctor image to MongoDB Atlas Media collection
+        try {
+            const fileBuffer = fs.readFileSync(req.file.path);
+            await Media.findOneAndUpdate(
+                { filename: req.file.filename },
+                {
+                    filename: req.file.filename,
+                    data: fileBuffer,
+                    contentType: req.file.mimetype || 'image/jpeg',
+                    size: req.file.size,
+                    uploadedAt: new Date()
+                },
+                { upsert: true, returnDocument: 'after' }
+            );
+            console.log(`✅ Doctor image saved to MongoDB Atlas: ${req.file.filename}`);
+        } catch (mediaErr) {
+            console.error('⚠️ Error saving doctor image to Atlas Media:', mediaErr.message);
+        }
         
         // Find if setting exists
         let setting = await Setting.findOne({ key: 'homePageDoctorImage' });
@@ -32,8 +52,15 @@ const uploadDoctorImage = async (req, res) => {
             // Delete old file if it exists
             const oldFilePath = path.join(__dirname, '..', setting.value);
             if (fs.existsSync(oldFilePath)) {
-                fs.unlinkSync(oldFilePath);
+                try {
+                    fs.unlinkSync(oldFilePath);
+                } catch (e) {}
             }
+            const oldFilename = path.basename(setting.value);
+            if (oldFilename && oldFilename !== req.file.filename) {
+                await Media.deleteOne({ filename: oldFilename }).catch(() => {});
+            }
+
             setting.value = filePath;
             await setting.save();
         } else {

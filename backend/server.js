@@ -7,6 +7,7 @@ const path = require('path');
 require('dotenv').config();
 
 const User = require('./models/User');
+const Media = require('./models/Media');
 
 for (const name of ['JWT_SECRET', 'MONGO_URI']) {
     if (!process.env[name]) {
@@ -37,21 +38,45 @@ app.use('/api/records', require('./routes/recordRoutes'));
 app.use('/api/bills', require('./routes/billRoutes'));
 app.use('/api/settings', require('./routes/settingRoutes'));
 
-// Serve optimized WebP images when available, otherwise serve original files
-app.use('/uploads', (req, res, next) => {
-    const filename = path.basename(req.path);
+// Stream uploads from MongoDB Atlas Media collection with local cache fallback
+app.get('/uploads/:filename', async (req, res) => {
+    try {
+        const filename = decodeURIComponent(req.params.filename);
+        const localPath = path.join(__dirname, 'uploads', filename);
 
-    if (filename.toLowerCase().endsWith('.png')) {
-        const webpFilename = filename.slice(0, -4) + '.webp';
-        const webpPath = path.join(__dirname, 'uploads', webpFilename);
-
-        if (fs.existsSync(webpPath)) {
-            return res.sendFile(webpPath);
+        // If present on local disk, serve it with long cache
+        if (fs.existsSync(localPath)) {
+            res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+            return res.sendFile(localPath);
         }
-    }
 
-    next();
-}, express.static(path.join(__dirname, 'uploads')));
+        // If a webp version exists on disk for png, serve it
+        if (filename.toLowerCase().endsWith('.png')) {
+            const webpPath = path.join(__dirname, 'uploads', filename.slice(0, -4) + '.webp');
+            if (fs.existsSync(webpPath)) {
+                res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+                return res.sendFile(webpPath);
+            }
+        }
+
+        // Otherwise stream directly from MongoDB Atlas Media collection
+        const media = await Media.findOne({ filename });
+        if (media && media.data) {
+            res.setHeader('Content-Type', media.contentType || 'image/png');
+            res.setHeader('Content-Length', media.data.length);
+            res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
+            return res.end(media.data);
+        }
+
+        return res.status(404).send('Image not found');
+    } catch (err) {
+        console.error('Error serving upload:', err.message);
+        return res.status(500).send('Error serving image');
+    }
+});
+
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
 // Unknown API paths get a JSON 404 (not the SPA page below)
 app.use('/api', (req, res) => res.status(404).json({ message: 'Not found' }));
 
