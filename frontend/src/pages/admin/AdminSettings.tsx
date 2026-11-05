@@ -49,7 +49,11 @@ const AdminSettings = () => {
         setSelectedFile(null);
         setPreview(null);
       } else {
-        const errorData = await res.json();
+        if (res.status === 401) {
+          localStorage.removeItem("kalpvan_token");
+          localStorage.removeItem("kalpvan_user");
+        }
+        const errorData = await res.json().catch(() => ({}));
         throw new Error(errorData.message || "Upload failed");
       }
     } catch (error: any) {

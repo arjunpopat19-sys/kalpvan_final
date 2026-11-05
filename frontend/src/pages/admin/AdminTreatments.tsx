@@ -781,6 +781,10 @@ const AdminTreatments = () => {
 
       const data = await res.json();
       if (!res.ok) {
+        if (res.status === 401) {
+          localStorage.removeItem("kalpvan_token");
+          localStorage.removeItem("kalpvan_user");
+        }
         throw new Error(data.message || "Failed to upload image");
       }
 
@@ -895,6 +899,10 @@ const AdminTreatments = () => {
           body: JSON.stringify(payload)
         });
         if (!res.ok) {
+          if (res.status === 401) {
+            localStorage.removeItem("kalpvan_token");
+            localStorage.removeItem("kalpvan_user");
+          }
           const errData = await res.json().catch(() => ({}));
           throw new Error(errData.message || "Failed to create");
         }
@@ -906,6 +914,10 @@ const AdminTreatments = () => {
           body: JSON.stringify(payload)
         });
         if (!res.ok) {
+          if (res.status === 401) {
+            localStorage.removeItem("kalpvan_token");
+            localStorage.removeItem("kalpvan_user");
+          }
           const errData = await res.json().catch(() => ({}));
           throw new Error(errData.message || "Failed to update");
         }
