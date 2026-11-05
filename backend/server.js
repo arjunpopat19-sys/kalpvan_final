@@ -1,4 +1,5 @@
 const express = require('express');
+const fs = require('fs');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
@@ -36,9 +37,21 @@ app.use('/api/records', require('./routes/recordRoutes'));
 app.use('/api/bills', require('./routes/billRoutes'));
 app.use('/api/settings', require('./routes/settingRoutes'));
 
-// Serve uploads statically
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Serve optimized WebP images when available, otherwise serve original files
+app.use('/uploads', (req, res, next) => {
+    const filename = path.basename(req.path);
 
+    if (filename.toLowerCase().endsWith('.png')) {
+        const webpFilename = filename.slice(0, -4) + '.webp';
+        const webpPath = path.join(__dirname, 'uploads', webpFilename);
+
+        if (fs.existsSync(webpPath)) {
+            return res.sendFile(webpPath);
+        }
+    }
+
+    next();
+}, express.static(path.join(__dirname, 'uploads')));
 // Unknown API paths get a JSON 404 (not the SPA page below)
 app.use('/api', (req, res) => res.status(404).json({ message: 'Not found' }));
 

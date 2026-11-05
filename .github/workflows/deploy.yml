@@ -1,0 +1,104 @@
+name: Deploy Kalpvan Website
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kalpvan-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout project
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install backend dependencies
+        run: npm ci --omit=dev --prefix backend
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Build frontend
+        run: npm run build --prefix frontend
+
+      - name: Prepare deployment package
+        run: |
+          tar -czf release.tgz \
+            --exclude='backend/uploads' \
+            --exclude='backend/.env' \
+            --exclude='backend/.npm' \
+            backend frontend/dist
+
+      - name: Configure SSH
+        env:
+          DO_HOST: ${{ secrets.DO_HOST }}
+          DO_SSH_KEY: ${{ secrets.DO_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DO_SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$DO_HOST" >> ~/.ssh/known_hosts
+
+      - name: Upload deployment package
+        env:
+          DO_HOST: ${{ secrets.DO_HOST }}
+          DO_USER: ${{ secrets.DO_USER }}
+        run: |
+          scp release.tgz "$DO_USER@$DO_HOST:/tmp/kalpvan-release.tgz"
+
+      - name: Deploy to DigitalOcean
+        env:
+          DO_HOST: ${{ secrets.DO_HOST }}
+          DO_USER: ${{ secrets.DO_USER }}
+        run: |
+          ssh "$DO_USER@$DO_HOST" 'bash -s' <<'REMOTE'
+          set -e
+
+          test -f /etc/kalpvan.env
+          test -d /opt/kalpvan/backend
+
+          mkdir -p /tmp/kalpvan-release
+          rm -rf /tmp/kalpvan-release/*
+          tar -xzf /tmp/kalpvan-release.tgz -C /tmp/kalpvan-release
+
+          test -f /tmp/kalpvan-release/backend/server.js
+          test -f /tmp/kalpvan-release/frontend/dist/index.html
+
+          rm -rf /opt/kalpvan/backend/node_modules
+          cp -a /tmp/kalpvan-release/backend/. /opt/kalpvan/backend/
+
+          mkdir -p /opt/kalpvan/frontend
+          rm -rf /opt/kalpvan/frontend/dist
+          cp -a /tmp/kalpvan-release/frontend/dist /opt/kalpvan/frontend/dist
+
+          chown -R kalpvan:kalpvan /opt/kalpvan/backend /opt/kalpvan/frontend
+
+          systemctl restart kalpvan
+
+          for i in $(seq 1 15); do
+            if curl -fsS http://127.0.0.1:5000/api/health >/dev/null; then
+              echo "Kalpvan deployment successful!"
+              rm -rf /tmp/kalpvan-release /tmp/kalpvan-release.tgz
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Deployment health check failed"
+          journalctl -u kalpvan -n 40 --no-pager
+          exit 1
+          REMOTE
